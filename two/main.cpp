@@ -17,13 +17,13 @@ std::vector<command> file_to_vec(std::string_view filename)
     std::vector<command> out;
     std::fstream ifs{filename.data()};
     std::string line;
-    while (std::getline(ifs, line))
+    while(std::getline(ifs, line))
     {
         size_t delimiter_pos = line.find(' ');
         size_t count;
         auto [_, ec] =
             std::from_chars(line.data() + delimiter_pos + 1, line.data() + line.size() - delimiter_pos, count);
-        if (ec != std::errc() || delimiter_pos == std::string::npos)
+        if(ec != std::errc() || delimiter_pos == std::string::npos)
         {
             throw std::runtime_error{"Failed to parse line."};
         }
@@ -37,17 +37,17 @@ void one(const std::vector<command> &input)
 {
     size_t pos = 0;
     size_t depth = 0;
-    for (const auto &it : input)
+    for(const auto& it : input)
     {
-        if (it.direction == "forward")
+        if(it.direction == "forward")
         {
             pos += it.count;
         }
-        else if (it.direction == "up")
+        else if(it.direction == "up")
         {
             depth -= it.count;
         }
-        else if (it.direction == "down")
+        else if(it.direction == "down")
         {
             depth += it.count;
         }
@@ -61,18 +61,18 @@ void two(const std::vector<command> &input)
     size_t pos = 0;
     size_t depth = 0;
     size_t aim = 0;
-    for (const auto &it : input)
+    for(const auto& it : input)
     {
-        if (it.direction == "forward")
+        if(it.direction == "forward")
         {
             pos += it.count;
             depth += aim * it.count;
         }
-        else if (it.direction == "up")
+        else if(it.direction == "up")
         {
             aim -= it.count;
         }
-        else if (it.direction == "down")
+        else if(it.direction == "down")
         {
             aim += it.count;
         }
