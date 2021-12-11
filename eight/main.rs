@@ -48,16 +48,21 @@ fn two(input: &[Note]) {
     for note in input.iter() {
         let mapping = generate_digit_map(&note.signal);
 
-        for (k, v) in mapping.iter() {
-            println!("{} => {}", k, v);
-        }
-
+        let mut pat_num = 0_i64;
         for pat in note.output.iter() {
-            println!("Pat: {}", pat);
-            counter += mapping[pat] as i64;
+            let num = mapping[&sort_string(pat)] as i64;
+            pat_num = pat_num * 10 + num;
         }
+        // println!("{:?} => {}", note.output, pat_num);
+        counter += pat_num;
     }
-    println!("TWO: Sum of all outputs is {}", counter);
+    println!("TWO: Sum of all decoded outputs is {}", counter);
+}
+
+fn sort_string(pattern: &str) -> String {
+    let mut cvec = pattern.chars().collect::<Vec<_>>();
+    cvec.sort_unstable();
+    cvec.iter().collect::<String>()
 }
 
 fn generate_digit_map(keys: &[String]) -> HashMap<String, i32> {
@@ -79,10 +84,10 @@ fn generate_digit_map(keys: &[String]) -> HashMap<String, i32> {
 
     for pat in keys.iter() {
         match pat.len() {
-            2 => { mapping.insert(1, pat.to_string()); },
-            3 => { mapping.insert(7, pat.to_string()); },
-            4 => { mapping.insert(4, pat.to_string()); },
-            7 => { mapping.insert(8, pat.to_string()); },
+            2 => { mapping.insert(1, sort_string(pat)); },
+            3 => { mapping.insert(7, sort_string(pat)); },
+            4 => { mapping.insert(4, sort_string(pat)); },
+            7 => { mapping.insert(8, sort_string(pat)); },
             _ => (),
         }
     }
@@ -91,20 +96,20 @@ fn generate_digit_map(keys: &[String]) -> HashMap<String, i32> {
         match pat.len() {
             6 => {
                 if mapping.get(&4).unwrap().chars().all(|ch| pat.contains(ch)) {
-                    mapping.insert(9, pat.to_string());
+                    mapping.insert(9, sort_string(pat));
                 } else if mapping.get(&1).unwrap().chars().all(|ch| pat.contains(ch)) {
-                    mapping.insert(0, pat.to_string());
+                    mapping.insert(0, sort_string(pat));
                 } else {
-                    mapping.insert(6, pat.to_string());
+                    mapping.insert(6, sort_string(pat));
                 }
             },
             5 => {
                 if mapping.get(&1).unwrap().chars().all(|ch| pat.contains(ch)) {
-                    mapping.insert(3, pat.to_string());
+                    mapping.insert(3, sort_string(pat));
                 } else if check_if_five(&pat, &mapping.get(&4).unwrap()) {
-                    mapping.insert(5, pat.to_string());
+                    mapping.insert(5, sort_string(pat));
                 } else {
-                    mapping.insert(2, pat.to_string());
+                    mapping.insert(2, sort_string(pat));
                 }
             },
             _ => (),
