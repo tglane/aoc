@@ -31,16 +31,9 @@ struct Board {
 
 impl Board {
     fn from(marks: &Vec<Mark>) -> Board {
-        let mut x_max = 0_usize;
-        let mut y_max = 0_usize;
-        for mark in marks.iter() {
-            if mark.x > x_max as u64 {
-                x_max = mark.x as usize;
-            }
-            if mark.y > y_max as u64 {
-                y_max = mark.y as usize;
-            }
-        }
+        let (x_max, y_max) = marks
+            .iter()
+            .fold((0_usize, 0_usize), |(x, y), mark| (mark.x.max(x as u64) as usize, mark.y.max(y as u64) as usize));
 
         let mut board = Board { field: vec![vec!['.'; y_max + 1]; x_max + 1], x_len: x_max + 1, y_len: y_max + 1 };
         for mark in marks.iter() {
