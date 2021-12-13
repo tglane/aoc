@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 struct Rule {
@@ -42,16 +42,16 @@ fn build_map(rules: &[Rule]) -> HashMap<&str, Vec<String>> {
     map
 }
 
-fn advanced_step(curr_cave: &str, map: &HashMap<&str, Vec<String>>, recent: HashMap<&str, u64>, double_pass_used: bool) -> u64 {
+fn advanced_step(curr_cave: &str, map: &HashMap<&str, Vec<String>>, recent: HashSet<&str>, double_pass_used: bool) -> u64 {
     if curr_cave == "end" {
         return 1;
     } else {
         let mut new_routes = 0;
         for next in map[curr_cave].iter() {
             if next != "start" {
-                if next.chars().all(char::is_uppercase) || !recent.contains_key(&next as &str) {
+                if next.chars().all(char::is_uppercase) || !recent.contains(&next as &str) {
                     let mut recent_clone = recent.clone();
-                    *recent_clone.entry(next).or_insert(0) += 1;
+                    recent_clone.insert(&next as &str);
                     new_routes += advanced_step(&next, &map, recent_clone, double_pass_used);
                 } else if !double_pass_used {
                     new_routes += advanced_step(&next, &map, recent.clone(), true);
@@ -63,12 +63,12 @@ fn advanced_step(curr_cave: &str, map: &HashMap<&str, Vec<String>>, recent: Hash
 }
 
 fn one(map: &HashMap<&str, Vec<String>>) {
-    let route_count = advanced_step("start", &map, HashMap::<&str, u64>::new(), true);
+    let route_count = advanced_step("start", &map, HashSet::<&str>::new(), true);
     println!("ONE: Routes from start to end: {}", route_count);
 }
 
 fn two(map: &HashMap<&str, Vec<String>>) {
-    let route_count = advanced_step("start", &map, HashMap::<&str, u64>::new(), false);
+    let route_count = advanced_step("start", &map, HashSet::<&str>::new(), false);
     println!("TWO: Routes from start to end: {}", route_count);
 }
 
