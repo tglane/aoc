@@ -72,5 +72,6 @@ fn main() {
     let (template, rules) = parse_input("in.txt")
         .expect("Failed to parse input");
 
+    solve(&template, &rules, 10);
     solve(&template, &rules, 40);
 }
