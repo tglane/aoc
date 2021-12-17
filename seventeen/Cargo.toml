@@ -1,0 +1,11 @@
+[package]
+name = "seventeen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+scan_fmt = "*"
+
+[[bin]]
+name = "seventeen"
+path = "main.rs"
