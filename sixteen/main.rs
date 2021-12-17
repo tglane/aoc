@@ -187,15 +187,11 @@ fn parse_input(filename: &str) -> Result<Vec<u8>, Error> {
     Ok(out)
 }
 
-fn one(input: &Vec<u8>) {
-    let packet = Packet::from(&input);
-    println!("ONE: Version sum: {}", packet.version_sum());
-    println!("TWO: Packet evaluates to {}", packet.evaluate());
-}
-
 fn main() {
     let input = parse_input("in.txt")
         .expect("Failed to parse input");
 
-    one(&input);
+    let packet = Packet::from(&input);
+    println!("ONE: Version sum: {}", packet.version_sum());
+    println!("TWO: Packet evaluates to {}", packet.evaluate());
 }
