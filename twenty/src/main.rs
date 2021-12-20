@@ -40,6 +40,12 @@ fn parse_input(input: &str) -> Result<(Vec<bool>, HashSet<Pixel>), Error> {
     Ok((algo, pixels))
 }
 
+fn apply(pixels: &mut HashSet<Pixel>, algorithm: &[bool], iterations: u32) {
+    for i in 0..iterations {
+        *pixels = enhance(&pixels, &algorithm, i);
+    }
+}
+
 fn enhance(pixels: &HashSet<Pixel>, algorithm: &[bool], step: u32) -> HashSet<Pixel> {
     let mut new_pixels = HashSet::<Pixel>::new();
 
@@ -66,12 +72,10 @@ fn enhance(pixels: &HashSet<Pixel>, algorithm: &[bool], step: u32) -> HashSet<Pi
                         } else {
                             bin = bin << 1 | 0
                         }
+                    } else if algorithm[0] && step % 2 == 1 {
+                        bin = bin << 1 | 1;
                     } else {
-                        if step % 2 == 1 {
-                            bin = bin << 1 | 1;
-                        } else {
-                            bin = bin << 1 | 0;
-                        }
+                        bin = bin << 1 | 0;
                     }
                 }
             }
@@ -115,9 +119,7 @@ fn main() {
     let input_filename = std::env::args().nth(1).expect("No filename given");
     let (algo, mut pixels) = parse_input(&input_filename).expect("Failed to parse input");
 
-    let steps = 50;
-    for i in 0..steps {
-        pixels = enhance(&pixels, &algo, i);
-    }
+    let steps = 2;
+    apply(&mut pixels, &algo, steps);
     println!("Lit pixels after {} steps: {}", steps, count_lit(&pixels));
 }
