@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::collections::{VecDeque, HashMap};
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum Instruction {
     INP,
     ADD,
@@ -13,7 +13,7 @@ enum Instruction {
     NoOp,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum Register {
     W,
     X,
@@ -21,7 +21,7 @@ enum Register {
     Z,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct Op {
     inst: Instruction,
     op_a: Register,
@@ -81,14 +81,29 @@ impl Op {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct Program {
     registers: [i64; 4],
     ops: Vec<Op>,
+    pc: usize,
+    input_idx: usize,
+}
+
+impl std::hash::Hash for Program {
+    fn hash<H>(&self, state: &mut H)
+        where H: std::hash::Hasher
+    {
+        self.registers.hash(state);
+        state.finish();
+    }
 }
 
 #[allow(dead_code)]
 impl Program {
+    fn from(regs: [i64; 4], operations: Vec<Op>) -> Self {
+        Self { registers: regs, ops: operations, pc: 0, input_idx: 0 }
+    }
+
     fn w(&self) -> i64 {
         self.registers[0]
     }
@@ -105,54 +120,74 @@ impl Program {
         self.registers[3]
     }
 
-    fn run(&mut self, input: VecDeque<i64>) {
-        let mut pic = 0_usize;
+    fn peek_op(&self) -> Instruction {
+        self.ops[self.pc].inst.clone()
+    }
 
-        for op in self.ops.iter() {
-            let a = reg_to_idx(&op.op_a);
-            match op.inst {
-                Instruction::INP => {
-                    self.registers[a] = input[pic];
-                    pic += 1;
-                },
-                Instruction::ADD => {
-                    self.registers[a] = if let Some(op_b) = &op.op_b {
-                        self.registers[a] + self.registers[reg_to_idx(&op_b)]
-                    } else {
-                        self.registers[a] + op.op_b_num.unwrap()
-                    };
-                },
-                Instruction::MUL => {
-                    self.registers[a] = if let Some(op_b) = &op.op_b {
-                        self.registers[a] * self.registers[reg_to_idx(&op_b)]
-                    } else {
-                        self.registers[a] * op.op_b_num.unwrap()
-                    };
-                },
-                Instruction::DIV => {
-                    self.registers[a] = if let Some(op_b) = &op.op_b {
-                        self.registers[a] / self.registers[reg_to_idx(&op_b)]
-                    } else {
-                        self.registers[a] / op.op_b_num.unwrap()
-                    };
-                },
-                Instruction::MOD => {
-                    self.registers[a] = if let Some(op_b) = &op.op_b {
-                        self.registers[a] % self.registers[reg_to_idx(&op_b)]
-                    } else {
-                        self.registers[a] % op.op_b_num.unwrap()
-                    };
-                },
-                Instruction::EQL => {
-                    self.registers[a] = if let Some(op_b) = &op.op_b {
-                        (self.registers[a] == self.registers[reg_to_idx(&op_b)]) as i64
-                    } else {
-                        (self.registers[a] == op.op_b_num.unwrap()) as i64
-                    };
-                },
-                _ => {},
-            }
+    fn run(&mut self, input: &VecDeque<i64>) {
+        for _ in self.pc..self.ops.len() {
+            self.exec(&input);
         }
+    }
+
+    fn exec_many(&mut self, input: &VecDeque<i64>, steps: usize) {
+        for _ in 0..steps {
+            self.exec(&input);
+        }
+    }
+
+    fn exec(&mut self, input: &VecDeque<i64>) {
+        let op = &self.ops[self.pc];
+        let a = reg_to_idx(&op.op_a);
+
+        match op.inst {
+            Instruction::INP => {
+                self.registers[a] = input[self.input_idx];
+                self.input_idx += 1;
+            },
+            Instruction::ADD => {
+                self.registers[a] = if let Some(op_b) = &op.op_b {
+                    self.registers[a] + self.registers[reg_to_idx(&op_b)]
+                } else {
+                    self.registers[a] + op.op_b_num.unwrap()
+                };
+            },
+            Instruction::MUL => {
+                self.registers[a] = if let Some(op_b) = &op.op_b {
+                    self.registers[a] * self.registers[reg_to_idx(&op_b)]
+                } else {
+                    self.registers[a] * op.op_b_num.unwrap()
+                };
+            },
+            Instruction::DIV => {
+                self.registers[a] = if let Some(op_b) = &op.op_b {
+                    self.registers[a] / self.registers[reg_to_idx(&op_b)]
+                } else {
+                    self.registers[a] / op.op_b_num.unwrap()
+                };
+            },
+            Instruction::MOD => {
+                self.registers[a] = if let Some(op_b) = &op.op_b {
+                    self.registers[a] % self.registers[reg_to_idx(&op_b)]
+                } else {
+                    self.registers[a] % op.op_b_num.unwrap()
+                };
+            },
+            Instruction::EQL => {
+                self.registers[a] = if let Some(op_b) = &op.op_b {
+                    (self.registers[a] == self.registers[reg_to_idx(&op_b)]) as i64
+                } else {
+                    (self.registers[a] == op.op_b_num.unwrap()) as i64
+                };
+            },
+            _ => {},
+        }
+
+        self.pc += 1;
+    }
+
+    fn finished(&self) -> bool {
+        self.pc == self.ops.len()
     }
 }
 
@@ -183,13 +218,14 @@ fn parse_input(filename: &str) -> Result<Program, std::io::Error> {
         .map(|line| Op::from(&line))
         .collect::<Vec<Op>>();
 
-    Ok(Program { registers: [0; 4], ops })
+    Ok(Program::from([0; 4], ops))
 }
 
 fn brute_force_big(program: &Program) -> i64 {
+    // Got bound through trying
     for num in (0..99300000000000_i64).rev() {
         let mut p = program.clone();
-        p.run(num_to_vec(num));
+        p.run(&num_to_vec(num));
         if p.z() == 0 {
             return num;
         }
@@ -198,14 +234,40 @@ fn brute_force_big(program: &Program) -> i64 {
 }
 
 fn brute_force_small(program: &Program) -> i64 {
+    // Got bound through trying
     for num in 70000000000000..99300000000000_i64 {
         let mut p = program.clone();
-        p.run(num_to_vec(num));
+        p.run(&num_to_vec(num));
         if p.z() == 0 {
             return num;
         }
     }
     -1
+}
+
+fn biggest_valid(program: &Program, visited: &mut HashMap<Program, i64>) -> i64 {
+    if let Some(solution) = visited.get(&program) {
+        return *solution;
+    }
+
+    let range = [9,8,7,6,5,4,3,2,1];
+    'input: for input in range {
+        let mut p = program.clone();
+
+        while !p.finished() {
+            if p.peek_op() == Instruction::INP {
+
+            } else {
+                continue 'input;
+            }
+        }
+
+        if p.z() == 0 {
+            visited.insert(p, input);
+            return input;
+        }
+    }
+    0
 }
 
 fn main() {
