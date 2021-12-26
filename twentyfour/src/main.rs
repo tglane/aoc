@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::collections::{VecDeque, HashMap};
+use std::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq)]
 enum Instruction {
@@ -86,7 +86,6 @@ struct Program {
     registers: [i64; 4],
     ops: Vec<Op>,
     pc: usize,
-    input_idx: usize,
 }
 
 impl std::hash::Hash for Program {
@@ -101,7 +100,7 @@ impl std::hash::Hash for Program {
 #[allow(dead_code)]
 impl Program {
     fn from(regs: [i64; 4], operations: Vec<Op>) -> Self {
-        Self { registers: regs, ops: operations, pc: 0, input_idx: 0 }
+        Self { registers: regs, ops: operations, pc: 0 }
     }
 
     fn w(&self) -> i64 {
@@ -124,26 +123,37 @@ impl Program {
         self.ops[self.pc].inst.clone()
     }
 
-    fn run(&mut self, input: &VecDeque<i64>) {
+    fn run(&mut self, input: &[i64]) {
+        let mut input_idx = 0_usize;
         for _ in self.pc..self.ops.len() {
-            self.exec(&input);
+            if self.peek_op() == Instruction::INP {
+                self.exec(input[input_idx]);
+                input_idx += 1;
+            } else {
+                self.exec(input[input_idx]);
+            }
         }
     }
 
-    fn exec_many(&mut self, input: &VecDeque<i64>, steps: usize) {
+    fn exec_many(&mut self, input: &[i64], steps: usize) {
+        let mut input_idx = 0_usize;
         for _ in 0..steps {
-            self.exec(&input);
+            if self.peek_op() == Instruction::INP {
+                self.exec(input[input_idx]);
+                input_idx += 1;
+            } else {
+                self.exec(input[input_idx]);
+            }
         }
     }
 
-    fn exec(&mut self, input: &VecDeque<i64>) {
+    fn exec(&mut self, input: i64) {
         let op = &self.ops[self.pc];
         let a = reg_to_idx(&op.op_a);
 
         match op.inst {
             Instruction::INP => {
-                self.registers[a] = input[self.input_idx];
-                self.input_idx += 1;
+                self.registers[a] = input;
             },
             Instruction::ADD => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
@@ -180,7 +190,9 @@ impl Program {
                     (self.registers[a] == op.op_b_num.unwrap()) as i64
                 };
             },
-            _ => {},
+            _ => {
+                panic!("Invalid instruction");
+            },
         }
 
         self.pc += 1;
@@ -200,10 +212,10 @@ fn reg_to_idx(reg: &Register) -> usize {
     }
 }
 
-fn num_to_vec(mut num: i64) -> VecDeque<i64> {
-    let mut vec_repr = VecDeque::new();
+fn num_to_vec(mut num: i64) -> Vec<i64> {
+    let mut vec_repr = Vec::new();
     while num > 0 {
-        vec_repr.push_front(num % 10);
+        vec_repr.insert(0, num % 10);
         num /= 10;
     }
     vec_repr
@@ -223,8 +235,10 @@ fn parse_input(filename: &str) -> Result<Program, std::io::Error> {
 
 fn brute_force_big(program: &Program) -> i64 {
     // Got bound through trying
-    for num in (0..99300000000000_i64).rev() {
+    // 99298993199873
+    for num in (0..99298993199900_i64).rev() {
         let mut p = program.clone();
+        println!("NUM, {}, LEN: {}", num, num_to_vec(num).len());
         p.run(&num_to_vec(num));
         if p.z() == 0 {
             return num;
@@ -272,7 +286,9 @@ fn biggest_valid(program: &Program, visited: &mut HashMap<Program, i64>) -> i64 
 
 fn main() {
     let filename = std::env::args().nth(1).expect("No filename given");
-    let input = parse_input(&filename).expect("Failed to parse input");
+    let mut input = parse_input(&filename).expect("Failed to parse input");
+
+    // input.exec_many(&num_to_vec(99298993199873), 14);
 
     let biggest_valid_input = brute_force_big(&input);
     println!("ONE: Biggest valid input = {}", biggest_valid_input);
