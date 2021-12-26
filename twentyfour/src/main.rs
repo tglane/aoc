@@ -21,6 +21,17 @@ enum Register {
     Z,
 }
 
+impl Register {
+    fn to_index(&self) -> usize {
+        match self {
+            Register::W => 0,
+            Register::X => 1,
+            Register::Y => 2,
+            Register::Z => 3,
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 struct Op {
     inst: Instruction,
@@ -127,10 +138,10 @@ impl Program {
         let mut input_idx = 0_usize;
         for _ in self.pc..self.ops.len() {
             if self.peek_op() == Instruction::INP {
-                self.exec(input[input_idx]);
+                self.exec(Some(input[input_idx]));
                 input_idx += 1;
             } else {
-                self.exec(input[input_idx]);
+                self.exec(None);
             }
         }
     }
@@ -139,53 +150,57 @@ impl Program {
         let mut input_idx = 0_usize;
         for _ in 0..steps {
             if self.peek_op() == Instruction::INP {
-                self.exec(input[input_idx]);
+                self.exec(Some(input[input_idx]));
                 input_idx += 1;
             } else {
-                self.exec(input[input_idx]);
+                self.exec(None);
             }
         }
     }
 
-    fn exec(&mut self, input: i64) {
+    fn exec(&mut self, input: Option<i64>) {
         let op = &self.ops[self.pc];
-        let a = reg_to_idx(&op.op_a);
+        let a = op.op_a.to_index();
 
         match op.inst {
             Instruction::INP => {
-                self.registers[a] = input;
+                if let Some(in_num) = input {
+                self.registers[a] = in_num;
+                } else {
+                    panic!("Missing input!");
+                }
             },
             Instruction::ADD => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
-                    self.registers[a] + self.registers[reg_to_idx(&op_b)]
+                    self.registers[a] + self.registers[op_b.to_index()]
                 } else {
                     self.registers[a] + op.op_b_num.unwrap()
                 };
             },
             Instruction::MUL => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
-                    self.registers[a] * self.registers[reg_to_idx(&op_b)]
+                    self.registers[a] * self.registers[op_b.to_index()]
                 } else {
                     self.registers[a] * op.op_b_num.unwrap()
                 };
             },
             Instruction::DIV => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
-                    self.registers[a] / self.registers[reg_to_idx(&op_b)]
+                    self.registers[a] / self.registers[op_b.to_index()]
                 } else {
                     self.registers[a] / op.op_b_num.unwrap()
                 };
             },
             Instruction::MOD => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
-                    self.registers[a] % self.registers[reg_to_idx(&op_b)]
+                    self.registers[a] % self.registers[op_b.to_index()]
                 } else {
                     self.registers[a] % op.op_b_num.unwrap()
                 };
             },
             Instruction::EQL => {
                 self.registers[a] = if let Some(op_b) = &op.op_b {
-                    (self.registers[a] == self.registers[reg_to_idx(&op_b)]) as i64
+                    (self.registers[a] == self.registers[op_b.to_index()]) as i64
                 } else {
                     (self.registers[a] == op.op_b_num.unwrap()) as i64
                 };
@@ -200,15 +215,6 @@ impl Program {
 
     fn finished(&self) -> bool {
         self.pc == self.ops.len()
-    }
-}
-
-fn reg_to_idx(reg: &Register) -> usize {
-    match reg {
-        Register::W => 0,
-        Register::X => 1,
-        Register::Y => 2,
-        Register::Z => 3,
     }
 }
 
@@ -233,9 +239,9 @@ fn parse_input(filename: &str) -> Result<Program, std::io::Error> {
     Ok(Program::from([0; 4], ops))
 }
 
+#[allow(dead_code)]
 fn brute_force_big(program: &Program) -> i64 {
     // Got bound through trying
-    // 99298993199873
     for num in (0..99298993199900_i64).rev() {
         let mut p = program.clone();
         println!("NUM, {}, LEN: {}", num, num_to_vec(num).len());
@@ -247,6 +253,7 @@ fn brute_force_big(program: &Program) -> i64 {
     -1
 }
 
+#[allow(dead_code)]
 fn brute_force_small(program: &Program) -> i64 {
     // Got bound through trying
     for num in 70000000000000..99300000000000_i64 {
@@ -259,40 +266,53 @@ fn brute_force_small(program: &Program) -> i64 {
     -1
 }
 
-fn biggest_valid(program: &Program, visited: &mut HashMap<Program, i64>) -> i64 {
+fn biggest_valid_internal(program: &Program, visited: &mut HashMap<Program, Option<i64>>) -> Option<i64> {
     if let Some(solution) = visited.get(&program) {
         return *solution;
     }
 
-    let range = [9,8,7,6,5,4,3,2,1];
+    let range = [9, 8, 7, 6, 5, 4, 3, 2, 1];
     'input: for input in range {
         let mut p = program.clone();
+        p.exec(Some(input));
 
         while !p.finished() {
             if p.peek_op() == Instruction::INP {
-
+                if let Some(old_biggest) = biggest_valid_internal(&p, visited) {
+                    visited.insert(p.clone(), Some(old_biggest * 10 + input));
+                    return Some(old_biggest * 10 + input);
+                } else {
+                    continue 'input;
+                }
             } else {
-                continue 'input;
+                p.exec(None);
             }
         }
 
         if p.z() == 0 {
-            visited.insert(p, input);
-            return input;
+            visited.insert(p, Some(input));
+            return Some(input);
         }
     }
-    0
+
+    visited.insert(program.clone(), None);
+    None
+}
+
+fn biggest_valid(program: &Program) -> i64 {
+    let mut tmp = biggest_valid_internal(&program, &mut HashMap::new()).unwrap();
+    let mut reversed = 0;
+    while tmp != 0 {
+        reversed = reversed * 10 + tmp % 10;
+        tmp /= 10;
+    }
+    reversed
 }
 
 fn main() {
     let filename = std::env::args().nth(1).expect("No filename given");
-    let mut input = parse_input(&filename).expect("Failed to parse input");
+    let input = parse_input(&filename).expect("Failed to parse input");
 
-    // input.exec_many(&num_to_vec(99298993199873), 14);
-
-    let biggest_valid_input = brute_force_big(&input);
+    let biggest_valid_input = biggest_valid(&input);
     println!("ONE: Biggest valid input = {}", biggest_valid_input);
-
-    let smallest_valid_input = brute_force_small(&input);
-    println!("ONE: Biggest valid input = {}", smallest_valid_input);
 }
