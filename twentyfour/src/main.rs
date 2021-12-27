@@ -218,15 +218,6 @@ impl Program {
     }
 }
 
-fn num_to_vec(mut num: i64) -> Vec<i64> {
-    let mut vec_repr = Vec::new();
-    while num > 0 {
-        vec_repr.insert(0, num % 10);
-        num /= 10;
-    }
-    vec_repr
-}
-
 fn parse_input(filename: &str) -> Result<Program, std::io::Error> {
     let reader = BufReader::new(File::open(filename)?);
 
@@ -239,48 +230,20 @@ fn parse_input(filename: &str) -> Result<Program, std::io::Error> {
     Ok(Program::from([0; 4], ops))
 }
 
-#[allow(dead_code)]
-fn brute_force_big(program: &Program) -> i64 {
-    // Got bound through trying
-    for num in (0..99298993199900_i64).rev() {
-        let mut p = program.clone();
-        println!("NUM, {}, LEN: {}", num, num_to_vec(num).len());
-        p.run(&num_to_vec(num));
-        if p.z() == 0 {
-            return num;
-        }
-    }
-    -1
-}
-
-#[allow(dead_code)]
-fn brute_force_small(program: &Program) -> i64 {
-    // Got bound through trying
-    for num in 70000000000000..99300000000000_i64 {
-        let mut p = program.clone();
-        p.run(&num_to_vec(num));
-        if p.z() == 0 {
-            return num;
-        }
-    }
-    -1
-}
-
-fn biggest_valid_internal(program: &Program, visited: &mut HashMap<Program, Option<i64>>) -> Option<i64> {
+fn get_valid_internal(program: &Program, visited: &mut HashMap<Program, Option<i64>>, number_range: &[i64]) -> Option<i64> {
     if let Some(solution) = visited.get(&program) {
         return *solution;
     }
 
-    let range = [9, 8, 7, 6, 5, 4, 3, 2, 1];
-    'input: for input in range {
+    'input: for input in number_range {
         let mut p = program.clone();
-        p.exec(Some(input));
+        p.exec(Some(*input));
 
         while !p.finished() {
             if p.peek_op() == Instruction::INP {
-                if let Some(old_biggest) = biggest_valid_internal(&p, visited) {
-                    visited.insert(p.clone(), Some(old_biggest * 10 + input));
-                    return Some(old_biggest * 10 + input);
+                if let Some(old_smallest) = get_valid_internal(&p, visited, number_range) {
+                    visited.insert(p.clone(), Some(old_smallest * 10 + *input));
+                    return Some(old_smallest * 10 + *input);
                 } else {
                     continue 'input;
                 }
@@ -290,8 +253,8 @@ fn biggest_valid_internal(program: &Program, visited: &mut HashMap<Program, Opti
         }
 
         if p.z() == 0 {
-            visited.insert(p, Some(input));
-            return Some(input);
+            visited.insert(p, Some(*input));
+            return Some(*input);
         }
     }
 
@@ -300,7 +263,19 @@ fn biggest_valid_internal(program: &Program, visited: &mut HashMap<Program, Opti
 }
 
 fn biggest_valid(program: &Program) -> i64 {
-    let mut tmp = biggest_valid_internal(&program, &mut HashMap::new()).unwrap();
+    let number_range = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+    let mut tmp = get_valid_internal(&program, &mut HashMap::new(), &number_range).unwrap();
+    let mut reversed = 0;
+    while tmp != 0 {
+        reversed = reversed * 10 + tmp % 10;
+        tmp /= 10;
+    }
+    reversed
+}
+
+fn smallest_valid(program: &Program) -> i64 {
+    let number_range = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let mut tmp = get_valid_internal(&program, &mut HashMap::new(), &number_range).unwrap();
     let mut reversed = 0;
     while tmp != 0 {
         reversed = reversed * 10 + tmp % 10;
@@ -315,4 +290,7 @@ fn main() {
 
     let biggest_valid_input = biggest_valid(&input);
     println!("ONE: Biggest valid input = {}", biggest_valid_input);
+
+    let smallest_valid_input = smallest_valid(&input);
+    println!("TWO: Smallest valid input = {}", smallest_valid_input);
 }
