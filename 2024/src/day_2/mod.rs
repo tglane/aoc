@@ -61,16 +61,19 @@ fn is_report_safe_with_damper(report: &[u8]) -> bool {
     false
 }
 
-fn main() -> Result<()> {
-    let input = std::fs::read_to_string("input.txt")?;
+pub fn run() -> Result<()> {
+    let input = std::fs::read_to_string(format!(
+        "{}/src/day_2/input.txt",
+        env!("CARGO_MANIFEST_DIR")
+    ))?;
     let reports = parse_input(&input)?;
     let safe_count = reports.iter().filter(|r| is_report_safe(r)).count();
-    println!("Part 1: Number of safe reports: {safe_count}");
+    println!("Day 2, Part 1: Number of safe reports: {safe_count}");
     let safe_count_with_damping = reports
         .iter()
         .filter(|r| is_report_safe_with_damper(r))
         .count();
-    println!("Part 2: Number of safe reports with error damping: {safe_count_with_damping}");
+    println!("Day 2, Part 2: Number of safe reports with error damping: {safe_count_with_damping}");
     Ok(())
 }
 

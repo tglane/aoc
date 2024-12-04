@@ -58,21 +58,24 @@ fn parse_input(input: &str) -> Result<Vec<Op>> {
     Ok(ops?)
 }
 
-fn main() -> Result<()> {
-    let input = std::fs::read_to_string("input.txt")?;
+pub fn run() -> Result<()> {
+    let input = std::fs::read_to_string(format!(
+        "{}/src/day_3/input.txt",
+        env!("CARGO_MANIFEST_DIR")
+    ))?;
     let ops = parse_input(&input)?;
 
     let state_one = ops.iter().fold(State::default(), |mut state, op| {
         op.exec(&mut state, false);
         state
     });
-    println!("Part 1: {}", state_one.val);
+    println!("Day 3, Part 1: {}", state_one.val);
 
     let state_two = ops.iter().fold(State::default(), |mut state, op| {
         op.exec(&mut state, true);
         state
     });
-    println!("Part 2: {}", state_two.val);
+    println!("Day 3, Part 2: {}", state_two.val);
 
     Ok(())
 }

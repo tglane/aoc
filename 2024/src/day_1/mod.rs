@@ -33,13 +33,16 @@ fn similarity_score(a: &[u32], b: &[u32]) -> Result<u32> {
     Ok(similarity)
 }
 
-fn main() -> Result<()> {
-    let input = std::fs::read_to_string("input.txt")?;
+pub fn run() -> Result<()> {
+    let input = std::fs::read_to_string(format!(
+        "{}/src/day_1/input.txt",
+        env!("CARGO_MANIFEST_DIR")
+    ))?;
     let (a, b) = parse_input(&input)?;
     let similarity = similarity_score(&a, &b)?;
     let distance = list_distance(a, b)?;
-    println!("Part 1: Total distance between lists: {distance}");
-    println!("Part 2: Similarity score of the lists: {similarity}");
+    println!("Day 1, Part 1: Total distance between lists: {distance}");
+    println!("Day 1, Part 2: Similarity score of the lists: {similarity}");
     Ok(())
 }
 

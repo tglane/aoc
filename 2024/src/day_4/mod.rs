@@ -116,13 +116,16 @@ fn count_x_mas(field: &Vec<Vec<char>>) -> Result<usize> {
     Ok(xmas)
 }
 
-fn main() -> Result<()> {
-    let input = std::fs::read_to_string("input.txt")?;
+pub fn run() -> Result<()> {
+    let input = std::fs::read_to_string(format!(
+        "{}/src/day_4/input.txt",
+        env!("CARGO_MANIFEST_DIR")
+    ))?;
     let field = parse_input(&input);
     let xmas_count = count_xmas(&field)?;
-    println!("Part 1: XMAS count: {xmas_count}");
+    println!("Day 4, Part 1: XMAS count: {xmas_count}");
     let x_mas_count = count_x_mas(&field)?;
-    println!("Part 1: X-MAS count: {x_mas_count}");
+    println!("Day 4, Part 1: X-MAS count: {x_mas_count}");
     Ok(())
 }
 
