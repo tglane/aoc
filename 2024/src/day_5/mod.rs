@@ -51,26 +51,6 @@ fn is_valid_order(page_list: &[usize], rules: &HashMap<usize, HashSet<usize>>) -
     true
 }
 
-fn reorder(page_list: &[usize], rules: &HashMap<usize, HashSet<usize>>) -> Vec<usize> {
-    let mut visited = HashMap::<usize, usize>::new();
-    let mut page_list = page_list.to_vec();
-
-    for i in 0..page_list.len() {
-        if let Some(only_after) = rules.get(&page_list[i]) {
-            for oa in only_after {
-                if let Some(j) = visited.remove(oa) {
-                    let tmp = page_list[i];
-                    page_list[i] = page_list[j];
-                    page_list[j] = tmp;
-                }
-            }
-        }
-        visited.insert(page_list[i], i);
-    }
-
-    page_list
-}
-
 fn compare(a: &usize, b: &usize, rules: &HashMap<usize, HashSet<usize>>) -> Ordering {
     match rules.get(&a) {
         Some(r) => {
