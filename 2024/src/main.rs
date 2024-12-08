@@ -5,14 +5,14 @@ mod day_4;
 mod day_5;
 mod day_6;
 mod day_7;
+mod day_8;
 
 use anyhow::Result;
 
 fn main() -> Result<()> {
     if let Some(day) = std::env::args()
         .nth(1)
-        .map(|day| day.parse::<i32>().ok())
-        .flatten()
+        .and_then(|day| day.parse::<i32>().ok())
     {
         match day {
             1 => day_1::run()?,
@@ -22,6 +22,7 @@ fn main() -> Result<()> {
             5 => day_5::run()?,
             6 => day_6::run()?,
             7 => day_7::run()?,
+            8 => day_8::run()?,
             _ => (),
         }
     }

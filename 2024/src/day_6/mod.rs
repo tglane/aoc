@@ -53,7 +53,7 @@ fn get_dir(pos: char) -> Option<Direction> {
     }
 }
 
-fn positions_visited(mace: &Vec<Vec<char>>) -> Result<usize> {
+fn positions_visited(mace: &[Vec<char>]) -> Result<usize> {
     let mut visited = HashSet::<(usize, usize)>::new();
 
     let mut loop_visited = HashSet::<(usize, usize, Direction)>::new();
@@ -97,17 +97,17 @@ fn positions_visited(mace: &Vec<Vec<char>>) -> Result<usize> {
     }
 }
 
-fn loop_positions(mace: &Vec<Vec<char>>) -> usize {
-    let mut mace = mace.clone();
+fn loop_positions(mace: &[Vec<char>]) -> usize {
+    let mut mace = mace.to_vec();
 
     let mut loop_locations = 0;
     for i in 0..mace.len() {
         for j in 0..mace[i].len() {
-            let tmp = mace[i][j].clone();
+            let tmp = mace[i][j];
             if tmp != '#' {
                 mace[i][j] = '#';
 
-                if let Err(_) = positions_visited(&mace) {
+                if positions_visited(&mace).is_err() {
                     loop_locations += 1;
                 }
 
