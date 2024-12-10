@@ -108,6 +108,7 @@ pub fn run() -> Result<()> {
         env!("CARGO_MANIFEST_DIR")
     ))?;
     let (antennas, bounds) = parse_input(&input)?;
+
     let distinct_antinodes = distinct_anitnodes(&antennas, &bounds);
     println!("Day 8, Part 1: Distinct antinode positions: {distinct_antinodes}");
 
