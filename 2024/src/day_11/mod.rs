@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn part_one() {
         let stones = parse_input(INPUT).unwrap();
-        let num_stones = stones_after_blinks(&stones, 6);
+        let num_stones = stones_after_blinks(&stones, 25);
         assert_eq!(num_stones, 55312);
     }
 }
