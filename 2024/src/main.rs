@@ -3,6 +3,7 @@ mod day_10;
 mod day_11;
 mod day_12;
 mod day_13;
+mod day_14;
 mod day_2;
 mod day_3;
 mod day_4;
@@ -33,6 +34,7 @@ fn main() -> Result<()> {
             11 => day_11::run()?,
             12 => day_12::run()?,
             13 => day_13::run()?,
+            14 => day_14::run()?,
             _ => (),
         }
     }
