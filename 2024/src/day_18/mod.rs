@@ -1,5 +1,5 @@
-use anyhow::Result;
-use std::collections::{HashMap, HashSet, VecDeque};
+use anyhow::{Context, Result};
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Direction {
@@ -56,12 +56,12 @@ impl Pos {
             Pos {
                 pos: self.pos,
                 dir: self.dir.left(),
-                cost: self.cost + 1000,
+                cost: self.cost,
             },
             Pos {
                 pos: self.pos,
                 dir: self.dir.right(),
-                cost: self.cost + 1000,
+                cost: self.cost,
             },
         ]
     }
@@ -74,19 +74,15 @@ struct Mace {
 }
 
 impl Mace {
-    fn solve(
-        &self,
-    ) -> (
-        usize,
-        HashMap<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>,
-        VecDeque<((usize, usize), Direction)>,
-    ) {
+    fn fill(&mut self, blocks: &[(usize, usize)]) {
+        for b in blocks {
+            self.map[b.1][b.0] = '#';
+        }
+    }
+
+    fn solve(&self) -> Option<usize> {
         let mut min_cost = usize::MAX;
         let mut seen = HashMap::<((usize, usize), Direction), usize>::new();
-        let mut last_pos = VecDeque::new();
-
-        let mut pred =
-            HashMap::<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>::new();
 
         let mut queue = VecDeque::from([Pos {
             pos: self.start,
@@ -100,10 +96,13 @@ impl Mace {
                 continue;
             }
 
+            if pos.cost > min_cost {
+                continue;
+            }
+
             // Reached the destination
             if pos.pos == self.end {
                 min_cost = usize::min(min_cost, pos.cost);
-                last_pos.push_back((pos.pos, pos.dir));
                 continue;
             }
 
@@ -116,75 +115,64 @@ impl Mace {
                 if s.is_none_or(|c| *c > n.cost) {
                     seen.insert((n.pos, n.dir), n.cost);
                     queue.push_front(n.clone());
-
-                    pred.insert((n.pos, n.dir), [(pos.pos, pos.dir)].into());
-                } else if s.is_some_and(|c| *c == n.cost) {
-                    pred.entry((n.pos, n.dir))
-                        .or_default()
-                        .insert((pos.pos, pos.dir));
                 }
             }
         }
 
-        (min_cost, pred, last_pos)
-    }
-}
-
-fn tiles_on_track(
-    mut last_pos: VecDeque<((usize, usize), Direction)>,
-    pred: &HashMap<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>,
-) -> usize {
-    let mut path = HashSet::new();
-    let mut seen = HashSet::new();
-    while let Some(pos) = last_pos.pop_front() {
-        if let Some(p) = pred.get(&pos) {
-            if !seen.insert(pos) {
-                continue;
-            }
-
-            for n in p {
-                path.insert(n.0);
-                last_pos.push_back((n.0, n.1));
-            }
+        if min_cost == usize::MAX {
+            None
+        } else {
+            Some(min_cost)
         }
     }
-    path.len() + 1
 }
 
-fn parse_input(input: &str) -> Result<Mace> {
-    let mut start = (0, 0);
-    let mut end = (0, 0);
-    let map = input
+fn find_first_block(mut mace: Mace, blocks: &[(usize, usize)]) -> Option<(usize, usize)> {
+    for b in blocks.iter() {
+        mace.fill(&[*b]);
+        if mace.solve().is_none() {
+            return Some((b.0 - 1, b.1 - 1));
+        }
+    }
+    return None;
+}
+
+fn parse_input(input: &str, dimensions: usize) -> Result<(Vec<(usize, usize)>, Mace)> {
+    let start = (1, 1);
+    let end = (dimensions, dimensions);
+    let mut map = vec![vec!['.'; dimensions + 2]; dimensions + 2];
+
+    for x in 0..dimensions + 2 {
+        map[0][x] = '#';
+        map[dimensions + 1][x] = '#';
+        map[x][0] = '#';
+        map[x][dimensions + 1] = '#';
+    }
+
+    let lines = input
         .lines()
-        .enumerate()
-        .map(|(y, l)| {
-            l.chars()
-                .enumerate()
-                .map(|(x, c)| {
-                    if c == 'S' {
-                        start = (x, y);
-                    } else if c == 'E' {
-                        end = (x, y);
-                    }
-                    c
-                })
-                .collect()
+        .map(|l| {
+            let (x, y) = l.split_once(',').context("")?;
+            Ok((x.parse::<usize>()? + 1, y.parse::<usize>()? + 1))
         })
-        .collect();
-    Ok(Mace { map, start, end })
+        .collect::<Result<Vec<_>>>();
+
+    Ok((lines?, Mace { map, start, end }))
 }
 
 pub fn run() -> Result<()> {
     let input = std::fs::read_to_string(format!(
-        "{}/src/day_16/input.txt",
+        "{}/src/day_18/input.txt",
         env!("CARGO_MANIFEST_DIR")
     ))?;
-    let mace = parse_input(&input)?;
-    let (min_costs, pred, last_pos) = mace.solve();
-    let path = tiles_on_track(last_pos, &pred);
-    println!("Day 16, Part 1: Min costs for the mace: {min_costs}");
+    let (blocks, mut mace) = parse_input(&input, 71)?;
+    mace.fill(&blocks[0..1024]);
 
-    println!("Day 16, Part 2: Tiles on the track: {path}");
+    let min_steps = mace.solve();
+    println!("Day 18, Part 1: Min steps for the mace: {min_steps:?}");
+
+    let first_blocker = find_first_block(mace, &blocks[1024..]).unwrap();
+    println!("Day 18, Part 2: Path first blocked after block at: {first_blocker:?}");
 
     Ok(())
 }
@@ -193,34 +181,45 @@ pub fn run() -> Result<()> {
 mod tests {
     use super::*;
 
-    const INPUT: &str = "###############
-#.......#....E#
-#.#.###.#.###.#
-#.....#.#...#.#
-#.###.#####.#.#
-#.#.#.......#.#
-#.#.#####.###.#
-#...........#.#
-###.#.#####.#.#
-#...#.....#.#.#
-#.#.#.###.#.#.#
-#.....#...#.#.#
-#.###.#.#.#.#.#
-#S..#.....#...#
-###############";
+    const INPUT: &str = "5,4
+4,2
+4,5
+3,0
+2,1
+6,3
+2,4
+1,5
+0,6
+3,3
+2,6
+5,1
+1,2
+5,5
+2,5
+6,5
+1,4
+0,4
+6,4
+1,1
+6,1
+1,0
+0,5
+1,6
+2,0";
 
     #[test]
     fn part_one() {
-        let mace = parse_input(INPUT).unwrap();
-        let (min_cost, _, _) = mace.solve();
-        assert_eq!(min_cost, 7036);
+        let (blocks, mut mace) = parse_input(INPUT, 7).unwrap();
+        mace.fill(&blocks[0..12]);
+        let min_steps = mace.solve().unwrap();
+        assert_eq!(min_steps, 22);
     }
 
     #[test]
     fn part_two() {
-        let mace = parse_input(INPUT).unwrap();
-        let (_, pred, last_pos) = mace.solve();
-        let tiles = tiles_on_track(last_pos, &pred);
-        assert_eq!(tiles, 58);
+        let (blocks, mut mace) = parse_input(INPUT, 7).unwrap();
+        mace.fill(&blocks[0..12]);
+        let first_blocker = find_first_block(mace, &blocks[12..]).unwrap();
+        assert_eq!(first_blocker, (6, 1));
     }
 }

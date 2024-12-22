@@ -1,5 +1,5 @@
-use anyhow::Result;
-use std::collections::{HashMap, HashSet, VecDeque};
+use anyhow::{Context, Result};
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Direction {
@@ -56,12 +56,12 @@ impl Pos {
             Pos {
                 pos: self.pos,
                 dir: self.dir.left(),
-                cost: self.cost + 1000,
+                cost: self.cost,
             },
             Pos {
                 pos: self.pos,
                 dir: self.dir.right(),
-                cost: self.cost + 1000,
+                cost: self.cost,
             },
         ]
     }
@@ -74,19 +74,11 @@ struct Mace {
 }
 
 impl Mace {
-    fn solve(
-        &self,
-    ) -> (
-        usize,
-        HashMap<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>,
-        VecDeque<((usize, usize), Direction)>,
-    ) {
-        let mut min_cost = usize::MAX;
+    fn shortest_path(&self) -> Option<Vec<(usize, usize)>> {
         let mut seen = HashMap::<((usize, usize), Direction), usize>::new();
         let mut last_pos = VecDeque::new();
 
-        let mut pred =
-            HashMap::<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>::new();
+        let mut pred = HashMap::<((usize, usize), Direction), Pos>::new();
 
         let mut queue = VecDeque::from([Pos {
             pos: self.start,
@@ -102,9 +94,8 @@ impl Mace {
 
             // Reached the destination
             if pos.pos == self.end {
-                min_cost = usize::min(min_cost, pos.cost);
-                last_pos.push_back((pos.pos, pos.dir));
-                continue;
+                last_pos.push_back(pos);
+                break;
             }
 
             for n in pos.next() {
@@ -117,38 +108,66 @@ impl Mace {
                     seen.insert((n.pos, n.dir), n.cost);
                     queue.push_front(n.clone());
 
-                    pred.insert((n.pos, n.dir), [(pos.pos, pos.dir)].into());
-                } else if s.is_some_and(|c| *c == n.cost) {
-                    pred.entry((n.pos, n.dir))
-                        .or_default()
-                        .insert((pos.pos, pos.dir));
+                    pred.insert((n.pos, n.dir), pos.clone());
                 }
             }
         }
 
-        (min_cost, pred, last_pos)
+        for end in last_pos {
+            let mut path = vec![end];
+            loop {
+                let last = path.last()?.clone();
+                if last.pos == self.start {
+                    break;
+                }
+                let Some(prev) = pred.get(&(last.pos, last.dir)) else {
+                    return None;
+                };
+
+                path.push(prev.clone());
+            }
+
+            // path.reverse();
+            let mut path = path.iter().map(|p| p.pos).collect::<Vec<_>>();
+            path.dedup();
+            return Some(path);
+        }
+
+        None
     }
 }
 
-fn tiles_on_track(
-    mut last_pos: VecDeque<((usize, usize), Direction)>,
-    pred: &HashMap<((usize, usize), Direction), HashSet<((usize, usize), Direction)>>,
+fn find_cheats(
+    path: &[(usize, usize)],
+    max_cheat_time: usize,
+    min_savings: usize,
+    start_time: usize,
 ) -> usize {
-    let mut path = HashSet::new();
-    let mut seen = HashSet::new();
-    while let Some(pos) = last_pos.pop_front() {
-        if let Some(p) = pred.get(&pos) {
-            if !seen.insert(pos) {
-                continue;
-            }
+    let mut viable = 0;
+    let cheat_start = path[start_time];
+    if start_time > path.len() - min_savings {
+        return 0;
+    }
+    let mut normal_end_time = start_time + min_savings;
+    while normal_end_time < path.len() {
+        let cheat_end = path[normal_end_time];
 
-            for n in p {
-                path.insert(n.0);
-                last_pos.push_back((n.0, n.1));
+        let cheat_dist_manhattan = {
+            ((cheat_start.0 as isize - cheat_end.0 as isize).abs()
+                + (cheat_start.1 as isize - cheat_end.1 as isize).abs()) as usize
+        };
+        if cheat_dist_manhattan > max_cheat_time {
+            normal_end_time += cheat_dist_manhattan - max_cheat_time;
+        } else {
+            let cheat_end_time = start_time + cheat_dist_manhattan;
+            let savings = normal_end_time - cheat_end_time;
+            if cheat_dist_manhattan <= max_cheat_time && savings >= min_savings {
+                viable += 1;
             }
+            normal_end_time += 1;
         }
     }
-    path.len() + 1
+    viable
 }
 
 fn parse_input(input: &str) -> Result<Mace> {
@@ -176,15 +195,21 @@ fn parse_input(input: &str) -> Result<Mace> {
 
 pub fn run() -> Result<()> {
     let input = std::fs::read_to_string(format!(
-        "{}/src/day_16/input.txt",
+        "{}/src/day_20/input.txt",
         env!("CARGO_MANIFEST_DIR")
     ))?;
     let mace = parse_input(&input)?;
-    let (min_costs, pred, last_pos) = mace.solve();
-    let path = tiles_on_track(last_pos, &pred);
-    println!("Day 16, Part 1: Min costs for the mace: {min_costs}");
+    let path = mace.shortest_path().context("No path found")?;
 
-    println!("Day 16, Part 2: Tiles on the track: {path}");
+    let cheat_count = (0..path.len())
+        .map(|cheat_start| find_cheats(&path, 2, 100, cheat_start))
+        .sum::<usize>();
+    println!("Day 20, Part 1: Number of cheat codes that safe 100 picoseconds: {cheat_count}");
+
+    let cheat_count = (0..path.len())
+        .map(|cheat_start| find_cheats(&path, 20, 100, cheat_start))
+        .sum::<usize>();
+    println!("Day 20, Part 2: Number of cheat codes that safe 100 picoseconds: {cheat_count}");
 
     Ok(())
 }
@@ -194,33 +219,30 @@ mod tests {
     use super::*;
 
     const INPUT: &str = "###############
-#.......#....E#
-#.#.###.#.###.#
-#.....#.#...#.#
-#.###.#####.#.#
-#.#.#.......#.#
-#.#.#####.###.#
-#...........#.#
-###.#.#####.#.#
-#...#.....#.#.#
-#.#.#.###.#.#.#
-#.....#...#.#.#
-#.###.#.#.#.#.#
-#S..#.....#...#
+#...#...#.....#
+#.#.#.#.#.###.#
+#S#...#.#.#...#
+#######.#.#.###
+#######.#.#...#
+#######.#.###.#
+###..E#...#...#
+###.#######.###
+#...###...#...#
+#.#####.#.###.#
+#.#...#.#.#...#
+#.#.#.#.#.#.###
+#...#...#...###
 ###############";
 
     #[test]
     fn part_one() {
         let mace = parse_input(INPUT).unwrap();
-        let (min_cost, _, _) = mace.solve();
-        assert_eq!(min_cost, 7036);
-    }
+        let path = mace.shortest_path().unwrap();
+        assert_eq!(path.len(), 85);
 
-    #[test]
-    fn part_two() {
-        let mace = parse_input(INPUT).unwrap();
-        let (_, pred, last_pos) = mace.solve();
-        let tiles = tiles_on_track(last_pos, &pred);
-        assert_eq!(tiles, 58);
+        let cheat_count = (0..path.len())
+            .map(|cheat_start| find_cheats(&path, 2, 2, cheat_start))
+            .sum::<usize>();
+        assert_eq!(cheat_count, 14 + 14 + 2 + 4 + 2 + 3 + 5);
     }
 }
