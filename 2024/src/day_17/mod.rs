@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
 use anyhow::{bail, Context, Result};
 use regex::Regex;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum OpCode {
     Adv(isize), // 0
     Bxl(isize), // 1
@@ -30,7 +32,23 @@ impl TryFrom<(usize, isize)> for OpCode {
     }
 }
 
-#[derive(Debug)]
+impl Display for OpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let out = match self {
+            Self::Adv(value) => format!("Adv (0) -> {value}"),
+            Self::Bxl(value) => format!("Bxl (1) -> {value}"),
+            Self::Bst(value) => format!("Bst (2) -> {value}"),
+            Self::Jnz(value) => format!("Jnz (3) -> {value}"),
+            Self::Bxc(value) => format!("Bxc (4) -> {value}"),
+            Self::Out(value) => format!("Out (5) -> {value}"),
+            Self::Bdv(value) => format!("Bdv (6) -> {value}"),
+            Self::Cdv(value) => format!("Cdv (7) -> {value}"),
+        };
+        write!(f, "{out}")
+    }
+}
+
+#[derive(Clone, Debug)]
 struct ChronospatialComputer {
     reg_a: isize,
     reg_b: isize,
@@ -39,16 +57,24 @@ struct ChronospatialComputer {
 }
 
 impl ChronospatialComputer {
+    fn reset(&mut self, a: isize, b: isize, c: isize) {
+        self.reg_a = a;
+        self.reg_b = b;
+        self.reg_c = c;
+        self.inst_ptr = 0;
+    }
+
     fn run(&mut self, ops: &[OpCode]) -> Result<String> {
         let mut out = Vec::<u8>::new();
-        // for op in ops {
         while let Some(op) = ops.get(self.inst_ptr) {
             match op {
                 OpCode::Adv(operand) => {
                     self.reg_a = self.reg_a >> self.decode_combo_operand(*operand)?;
                 }
                 OpCode::Bxl(operand) => self.reg_b ^= operand,
-                OpCode::Bst(operand) => self.reg_b = self.decode_combo_operand(*operand)? % 8,
+                OpCode::Bst(operand) => {
+                    self.reg_b = ((self.decode_combo_operand(*operand)? % 8) + 8) % 8
+                }
                 OpCode::Jnz(operand) => {
                     if self.reg_a != 0 {
                         self.inst_ptr = self.decode_combo_operand(*operand)?.try_into()?;
@@ -57,7 +83,7 @@ impl ChronospatialComputer {
                 }
                 OpCode::Bxc(_operand) => self.reg_b ^= self.reg_c,
                 OpCode::Out(operand) => {
-                    let val = self.decode_combo_operand(*operand)? % 8;
+                    let val = ((self.decode_combo_operand(*operand)? % 8) + 8) % 8;
                     println!("Out: {val}");
                     out.push(val.try_into()?);
                 }
@@ -65,13 +91,14 @@ impl ChronospatialComputer {
                     self.reg_b = self.reg_a >> self.decode_combo_operand(*operand)?;
                 }
                 OpCode::Cdv(operand) => {
-                    self.reg_b = self.reg_a >> self.decode_combo_operand(*operand)?;
+                    self.reg_c = self.reg_a >> self.decode_combo_operand(*operand)?;
                 }
             }
 
             self.inst_ptr += 2;
         }
 
+        // Output should be a string joined by ,
         let out = out
             .into_iter()
             .enumerate()
@@ -95,6 +122,36 @@ impl ChronospatialComputer {
             _ => bail!("Invalid combo operand"),
         }
     }
+}
+
+fn calc_a_reg_replicating(mut comp: ChronospatialComputer, ops: &[OpCode]) -> Result<isize> {
+    let (mut a, b, c) = (0, comp.reg_b, comp.reg_c);
+    for i in (0..ops.len()).rev() {
+        a <<= 3;
+        comp.reset(a, b, c);
+        while parse_op_codes(&comp.run(&ops)?)? != &ops[i..] {
+            a += 1;
+            comp.reset(a, b, c);
+        }
+    }
+    Ok(a)
+}
+
+fn parse_op_codes(input: &str) -> Result<Vec<OpCode>> {
+    if input.is_empty() {
+        return Ok(Vec::default());
+    }
+
+    let op_iter = input
+        .split(',')
+        .map(|s| s.parse::<usize>().context("ops"))
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut parsed_ops = Vec::new();
+    for w in op_iter.windows(2) {
+        parsed_ops.push(OpCode::try_from((w[0], w[1].try_into()?))?);
+    }
+    Ok(parsed_ops)
 }
 
 fn parse_input(input: &str) -> Result<(ChronospatialComputer, Vec<OpCode>)> {
@@ -132,32 +189,11 @@ fn parse_input(input: &str) -> Result<(ChronospatialComputer, Vec<OpCode>)> {
         inst_ptr: 0,
     };
 
-    let mut parsed_ops = Vec::new();
-
-    let op_iter = ops
-        .trim()
-        .strip_prefix("Program: ")
-        .context("Invalid program sequence")?
-        .split(',')
-        .map(|s| s.parse::<usize>().context("ops"))
-        .collect::<Result<Vec<_>>>()?;
-
-    for w in op_iter.windows(2) {
-        parsed_ops.push(OpCode::try_from((w[0], w[1].try_into()?))?);
-    }
-
-    // let op_iter = ops
-    //     .trim()
-    //     .strip_prefix("Program: ")
-    //     .context("Invalid program sequence")?
-    //     .split(',')
-    //     .map(|s| s.parse::<usize>().context("ops"))
-    //     .chunks(2);
-    // for mut ch in &op_iter {
-    //     let code = ch.next().context("")??;
-    //     let operand = ch.next().context("")??;
-    //     parsed_ops.push(OpCode::try_from((code, operand.try_into()?))?);
-    // }
+    let parsed_ops = parse_op_codes(
+        ops.trim()
+            .strip_prefix("Program: ")
+            .context("Invalid program sequence")?,
+    )?;
 
     Ok((computer, parsed_ops))
 }
@@ -168,10 +204,13 @@ pub fn run() -> Result<()> {
         env!("CARGO_MANIFEST_DIR")
     ))?;
     let (mut computer, ops) = parse_input(&input)?;
-    println!("ops: {ops:?}");
+    let computer_backup = computer.clone();
 
     let output = computer.run(&ops)?;
     println!("Day 17, Part 1: Output of the program: {output}");
+
+    let a_val_replicating = calc_a_reg_replicating(computer_backup, &ops)?;
+    println!("Day 17, Part 2: Value for register a to creating self replicating output: {a_val_replicating}");
 
     Ok(())
 }
@@ -186,14 +225,23 @@ Register C: 0
 
 Program: 0,1,5,4,3,0";
 
+    const INPUT_2: &str = "Register A: 2024
+Register B: 0
+Register C: 0
+
+Program: 0,3,5,4,3,0";
+
     #[test]
     fn part_one() {
         let (mut computer, ops) = parse_input(INPUT).unwrap();
-        println!("Ops: {ops:?}");
         let out = computer.run(&ops).unwrap();
         assert_eq!(out, "4,6,3,5,6,3,5,2,1,0");
     }
 
     #[test]
-    fn part_two() {}
+    fn part_two() {
+        let (computer, ops) = parse_input(INPUT_2).unwrap();
+        let a_val = calc_a_reg_replicating(computer, &ops).unwrap();
+        assert_eq!(a_val, 117440);
+    }
 }
