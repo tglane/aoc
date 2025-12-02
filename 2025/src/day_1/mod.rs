@@ -17,7 +17,7 @@ impl Day for DayOne {
     }
 
     fn part_one(&self) -> Result<()> {
-        let rotations = parse_input(&self.input).unwrap();
+        let rotations = parse_input(&self.input)?;
         let mut lock = Lock::new();
         let zeros = rotations
             .iter()
@@ -32,7 +32,7 @@ impl Day for DayOne {
     }
 
     fn part_two(&self) -> Result<()> {
-        let rotations = parse_input(&self.input).unwrap();
+        let rotations = parse_input(&self.input)?;
         let mut lock = Lock::new();
         let zeros = rotations
             .iter()
@@ -114,7 +114,7 @@ fn parse_input(input: &str) -> Result<Vec<Rotation>> {
 
 #[cfg(test)]
 mod test {
-    use crate::day_1::{Lock, parse_input};
+    use super::*;
 
     static INPUT: &str = r#"L68
 L30

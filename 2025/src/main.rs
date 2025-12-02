@@ -1,7 +1,9 @@
 mod day_1;
+mod day_2;
 
 use anyhow::Result;
 use day_1::DayOne;
+use day_2::DayTwo;
 use std::path::{Path, PathBuf};
 
 trait Day {
@@ -25,7 +27,10 @@ fn input_path(day: usize) -> Result<PathBuf> {
 }
 
 fn main() -> Result<()> {
-    let days: Vec<Box<dyn Day>> = vec![Box::new(DayOne::new(&input_path(1)?)?)];
+    let days: Vec<Box<dyn Day>> = vec![
+        Box::new(DayOne::new(&input_path(1)?)?),
+        Box::new(DayTwo::new(&input_path(2)?)?),
+    ];
 
     if let Some(day) = std::env::args()
         .nth(1)
