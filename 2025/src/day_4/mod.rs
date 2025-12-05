@@ -26,7 +26,7 @@ impl Day for DayFour {
     fn part_two(&self) -> Result<()> {
         let mut map = Map::try_from(self.input.as_str())?;
         let removed_rolls = map.remove_accessible_rolls();
-        println!("Day 4 - Part 1: Removed paper rolls: {removed_rolls}");
+        println!("Day 4 - Part 2: Removed paper rolls: {removed_rolls}");
         Ok(())
     }
 }
@@ -34,15 +34,6 @@ impl Day for DayFour {
 struct Map(Vec<Vec<Field>>);
 
 impl Map {
-    fn print(&self) {
-        for line in self.0.iter() {
-            for field in line.iter() {
-                print!("{field}");
-            }
-            println!();
-        }
-    }
-
     fn count_accessible_rolls(&self) -> usize {
         let mut accessible = 0;
         for y in 0..self.0.len() {
@@ -133,6 +124,66 @@ impl TryFrom<char> for Field {
     }
 }
 
+// use std::collections::HashSet;
+// #[derive(Clone)]
+// struct BetterMap(HashSet<(isize, isize)>);
+//
+// impl BetterMap {
+//     fn count_accessible_rolls(&self) -> usize {
+//         let mut accessible = 0;
+//         for field in self.0.iter() {
+//             if self.accessible_field(field.0, field.1) {
+//                 accessible += 1;
+//             }
+//         }
+//         accessible
+//     }
+//
+//     fn remove_accessible_rolls(&mut self) -> usize {
+//         let copy = self.clone();
+//         self.0 = self
+//             .0
+//             .extract_if(|(x, y)| !copy.accessible_field(*x, *y))
+//             .collect();
+//
+//         let accessible = copy.0.len() - self.0.len();
+//
+//         if accessible == 0 {
+//             accessible
+//         } else {
+//             accessible + self.remove_accessible_rolls()
+//         }
+//     }
+//
+//     fn accessible_field(&self, x: isize, y: isize) -> bool {
+//         let mut adjacent = 0;
+//         for other_y in y - 1..=y + 1 {
+//             for other_x in x - 1..=x + 1 {
+//                 if !(other_x == x && other_y == y) && self.0.contains(&(other_x, other_y)) {
+//                     adjacent += 1;
+//                 }
+//             }
+//         }
+//         adjacent < 4
+//     }
+// }
+//
+// impl TryFrom<&str> for BetterMap {
+//     type Error = anyhow::Error;
+//
+//     fn try_from(input: &str) -> Result<Self, Self::Error> {
+//         let mut fields = HashSet::new();
+//         for (y, line) in input.lines().enumerate() {
+//             for (x, field) in line.chars().enumerate() {
+//                 if field == '@' {
+//                     fields.insert((x as isize, y as isize));
+//                 }
+//             }
+//         }
+//         Ok(BetterMap(fields))
+//     }
+// }
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -151,6 +202,7 @@ mod test {
 
     #[test]
     fn part_one() {
+        // let map = Map::try_from(INPUT).unwrap();
         let map = Map::try_from(INPUT).unwrap();
         let accessible_rolls = map.count_accessible_rolls();
         assert_eq!(accessible_rolls, 13);
@@ -158,6 +210,7 @@ mod test {
 
     #[test]
     fn part_two() {
+        // let mut map = Map::try_from(INPUT).unwrap();
         let mut map = Map::try_from(INPUT).unwrap();
         let accessible_rolls = map.remove_accessible_rolls();
         assert_eq!(accessible_rolls, 43);
