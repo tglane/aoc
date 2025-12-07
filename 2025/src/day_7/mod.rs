@@ -22,14 +22,14 @@ impl Day for DaySeven {
 
     fn part_one(&self) -> Result<()> {
         let diagram = TachyonDiagram::try_from(self.input.as_str()).unwrap();
-        let splits = diagram.simulate();
+        let (_, splits) = diagram.simulate_quantum();
         println!("Day 7 - Part 1: Number of beam splits: {splits}");
         Ok(())
     }
 
     fn part_two(&self) -> Result<()> {
         let diagram = TachyonDiagram::try_from(self.input.as_str()).unwrap();
-        let timelines = diagram.simulate_quantum();
+        let (timelines, _) = diagram.simulate_quantum();
         println!("Day 7 - Part 2: Number of beam timelines: {timelines}");
         Ok(())
     }
@@ -42,6 +42,7 @@ struct TachyonDiagram {
 }
 
 impl TachyonDiagram {
+    #[allow(dead_code)]
     fn simulate(&self) -> usize {
         let mut seen_beams = Vec::<Beam>::new();
         let mut open_beams = VecDeque::from([Beam::new(self.start)]);
@@ -68,14 +69,17 @@ impl TachyonDiagram {
         splitters.len()
     }
 
-    fn simulate_quantum(&self) -> usize {
+    fn simulate_quantum(&self) -> (usize, usize) {
         let mut cache = HashMap::<(usize, usize), usize>::new();
-        Self::simulate_quantum_beam(
+        let mut splitters_hit = HashSet::<(usize, usize)>::new();
+        let timelines = Self::simulate_quantum_beam(
             Beam::new(self.start),
             &self.splitters,
             self.max_y,
             &mut cache,
-        )
+            &mut splitters_hit,
+        );
+        (timelines, splitters_hit.len())
     }
 
     fn simulate_quantum_beam(
@@ -83,6 +87,7 @@ impl TachyonDiagram {
         splitters: &HashSet<(usize, usize)>,
         max_y: usize,
         cache: &mut HashMap<(usize, usize), usize>,
+        splitters_hit: &mut HashSet<(usize, usize)>,
     ) -> usize {
         if let Some(occurence) = cache.get(&beam.start()) {
             return *occurence;
@@ -91,8 +96,10 @@ impl TachyonDiagram {
         let mut count = 0;
 
         if let Some((a, b)) = beam.simulate(splitters, max_y) {
-            count += Self::simulate_quantum_beam(a, splitters, max_y, cache);
-            count += Self::simulate_quantum_beam(b, splitters, max_y, cache);
+            let a_start = a.start();
+            splitters_hit.insert((a_start.0 + 1, a_start.1));
+            count += Self::simulate_quantum_beam(a, splitters, max_y, cache, splitters_hit);
+            count += Self::simulate_quantum_beam(b, splitters, max_y, cache, splitters_hit);
         } else {
             return 1;
         }
@@ -252,14 +259,14 @@ mod test {
     #[test]
     fn part_one() {
         let diagram = TachyonDiagram::try_from(INPUT).unwrap();
-        let splits = diagram.simulate();
+        let (_, splits) = diagram.simulate_quantum();
         assert_eq!(splits, 21);
     }
 
     #[test]
     fn part_two() {
         let diagram = TachyonDiagram::try_from(INPUT).unwrap();
-        let timelines = diagram.simulate_quantum();
+        let (timelines, _) = diagram.simulate_quantum();
         assert_eq!(timelines, 40);
     }
 }
