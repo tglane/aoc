@@ -1,6 +1,7 @@
 mod day_1;
 mod day_10;
 mod day_11;
+mod day_12;
 mod day_2;
 mod day_3;
 mod day_4;
@@ -22,6 +23,7 @@ use day_8::DayEight;
 use day_9::DayNine;
 use day_10::DayTen;
 use day_11::DayEleven;
+use day_12::DayTwelve;
 use std::path::{Path, PathBuf};
 
 trait Day {
@@ -57,6 +59,7 @@ fn main() -> Result<()> {
         Box::new(DayNine::new(&input_path(9)?)?),
         Box::new(DayTen::new(&input_path(10)?)?),
         Box::new(DayEleven::new(&input_path(11)?)?),
+        Box::new(DayTwelve::new(&input_path(12)?)?),
     ];
 
     if let Some(day) = std::env::args()
