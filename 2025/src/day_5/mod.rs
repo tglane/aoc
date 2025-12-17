@@ -84,9 +84,8 @@ impl TryFrom<&str> for Ingredients {
         let mut merged_ranges = Vec::with_capacity(fresh_ranges.len());
         merged_ranges.push(*fresh_ranges.first().ok_or(anyhow::Error::msg(""))?);
 
-        for i in 1..fresh_ranges.len() {
+        for curr in fresh_ranges.into_iter().skip(1) {
             let prev = merged_ranges.last_mut().unwrap();
-            let curr = fresh_ranges[i];
 
             // Merge if current start is less or equal to end of the previous one
             //

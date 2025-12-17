@@ -208,14 +208,12 @@ impl<'p> PolygonRef<'p> {
     }
 }
 
-fn largest_rectangle<'p>(points: &'p [Point]) -> Option<Surface> {
+fn largest_rectangle(points: &[Point]) -> Option<Surface> {
     let mut max_surface: Option<Surface> = None;
     for a in 0..points.len() {
         for b in a + 1..points.len() {
             let surface = Surface::new(&points[a], &points[b]);
-            if !max_surface
-                .as_ref()
-                .is_some_and(|max_surface| max_surface.area > surface.area)
+            if max_surface.as_ref().is_none_or(|max_surface| max_surface.area <= surface.area)
             {
                 max_surface = Some(surface);
             }
@@ -224,7 +222,7 @@ fn largest_rectangle<'p>(points: &'p [Point]) -> Option<Surface> {
     max_surface
 }
 
-fn largest_rectangle_bounded<'p>(points: &'p [Point]) -> Option<Surface> {
+fn largest_rectangle_bounded(points: &[Point]) -> Option<Surface> {
     let mut surfaces = Vec::with_capacity(points.len().pow(2));
     for a in 0..points.len() {
         for b in a + 1..points.len() {

@@ -59,7 +59,7 @@ impl Lock {
 
     fn rotate(&mut self, rotation: Rotation) {
         let movement = match rotation {
-            Rotation::Left(steps) => steps * -1,
+            Rotation::Left(steps) => -steps,
             Rotation::Right(steps) => steps,
         };
         let new_pos_unchecked = self.pos + movement;
@@ -68,7 +68,7 @@ impl Lock {
 
     fn rotate_0x434_c49434_b(&mut self, rotation: Rotation) -> usize {
         let mut steps_left = match rotation {
-            Rotation::Left(steps) => steps * -1,
+            Rotation::Left(steps) => -steps,
             Rotation::Right(steps) => steps,
         };
 

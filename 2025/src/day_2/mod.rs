@@ -88,17 +88,13 @@ struct Id(usize);
 impl Id {
     fn valid(&self) -> bool {
         let s = self.0.to_string();
-
-        if s.len() % 2 == 0 {
+        if s.len().is_multiple_of(2) {
             let (a, b) = s.split_at(s.len() / 2);
-
-            let a = a.parse::<usize>().unwrap();
-            let b = b.parse::<usize>().unwrap();
-
+            let a = a.parse::<usize>().expect("String is divisible by 2 and was created from a number");
+            let b = b.parse::<usize>().expect("String is divisible by 2 and was created from a number");
             return a != b;
         }
-
-        return true;
+        true
     }
 
     fn valid_complex(&self) -> bool {
@@ -126,7 +122,7 @@ impl Id {
             return false;
         }
 
-        return true;
+        true
     }
 
     fn next(self) -> Id {

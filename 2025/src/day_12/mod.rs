@@ -66,13 +66,28 @@ struct TreeArea {
 }
 
 impl TreeArea {
+    // This is not a *correct* solution, but for the given input it works.
+    //
+    // Strategy: We just check if there is enough space for the fields that are occupied by the
+    // required presents. We do not take the shapes into account, just the space thats needed
+    // as a sum. This is then compared with the space provided by the area.
     fn ok_heuristically(&self, shapes: &[Shape]) -> bool {
         let area_size = self.area.0 * self.area.1;
 
         let space_needed = self
             .presents_needed
             .iter()
-            .map(|(idx, count)| shapes[*idx].space_needed * count)
+            .map(|(idx, count)| {
+                shapes
+                    .iter()
+                    .find(|shape| shape.idx == *idx)
+                    .map(|shape| shape.space_needed)
+                    // If the required shape is not found, we just return the maximum number as
+                    // size to ensure that this will be to much space so that the area can never
+                    // provide it.
+                    .unwrap_or(usize::MAX)
+                    * count
+            })
             .sum::<usize>();
 
         area_size >= space_needed
@@ -171,7 +186,7 @@ mod test {
     #[test]
     fn part_one() {
         let (shapes, tree_areas) = parse_input(INPUT).unwrap();
-        let ok_areas = tree_areas
+        let _ok_areas = tree_areas
             .iter()
             .map(|area| area.ok_heuristically(&shapes))
             .filter(|ok| *ok)

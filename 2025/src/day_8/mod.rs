@@ -21,14 +21,13 @@ impl Day for DayEight {
             .input
             .lines()
             .map(Point3D::try_from)
-            .collect::<Result<Vec<_>>>()
-            .unwrap();
+            .collect::<Result<Vec<_>>>()?;
         let clusters = cluster_closest_points(&points, Some(1000));
         let size_of_three_largest = clusters
             .iter()
             .map(|cluster| cluster.len())
             .take(3)
-            .fold(1, |acc, cluster_len| acc * cluster_len);
+            .product::<usize>();
         println!("Day 8 - Part 1: Size of three largest clusters: {size_of_three_largest}");
         Ok(())
     }
@@ -38,8 +37,7 @@ impl Day for DayEight {
             .input
             .lines()
             .map(Point3D::try_from)
-            .collect::<Result<Vec<_>>>()
-            .unwrap();
+            .collect::<Result<Vec<_>>>()?;
         let _clusters = cluster_closest_points(&points, None);
         Ok(())
     }
@@ -176,7 +174,7 @@ fn cluster_closest_points(
     }
 
     // Sort clusters by size before returning
-    clusters.sort_by(|a, b| b.len().cmp(&a.len()));
+    clusters.sort_by_key(|cluster| std::cmp::Reverse(cluster.len()));
     clusters
 }
 
