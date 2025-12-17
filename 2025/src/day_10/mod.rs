@@ -1,6 +1,6 @@
 use crate::Day;
 use anyhow::{Context, Result};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 pub(crate) struct DayTen {
@@ -23,15 +23,25 @@ impl Day for DayTen {
             .lines()
             .map(MachineInstruction::try_from)
             .collect::<Result<Vec<_>>>()?;
-        let fewest_presses = machine_instructions
-            .iter()
-            .map(|m| m.solve_instruction().unwrap())
-            .sum::<usize>();
-        println!("Day 10 - Part 1: Sum of fewest presses: {fewest_presses}");
+        let fewest_presses = machine_instructions.iter().fold(0, |acc, m| {
+            m.set_desired_lights().map(|presses| acc + presses).unwrap_or(acc)
+        });
+        println!("Day 10 - Part 1: Sum of fewest presses to configure lights: {fewest_presses}");
         Ok(())
     }
 
     fn part_two(&self) -> Result<()> {
+        let machine_instructions = self
+            .input
+            .lines()
+            .map(MachineInstruction::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let fewest_presses = machine_instructions.iter().fold(0, |acc, m| {
+            m.set_joltage_levels().map(|presses| acc + presses).unwrap_or(acc)
+        });
+        println!(
+            "Day 10 - Part 2: Sum of fewest presses to configure joltage levels: {fewest_presses}"
+        );
         Ok(())
     }
 }
@@ -63,18 +73,12 @@ impl TryFrom<char> for LightStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct Button {
     lights_to_change: Vec<usize>,
 }
 
 impl Button {
-    fn from_iter(iter: impl Iterator<Item = usize>) -> Self {
-        Self {
-            lights_to_change: iter.collect(),
-        }
-    }
-
     fn push(&self, lights: &mut [LightStatus]) {
         for light_index in self.lights_to_change.iter() {
             lights[*light_index].toggle();
@@ -115,7 +119,7 @@ struct MachineInstruction {
 }
 
 impl MachineInstruction {
-    fn solve_instruction(&self) -> Option<usize> {
+    fn set_desired_lights(&self) -> Option<usize> {
         struct QueueState {
             light_status: Vec<LightStatus>,
             presses_until: usize,
@@ -149,14 +153,85 @@ impl MachineInstruction {
 
         None
     }
+
+    pub fn set_joltage_levels(&self) -> Option<usize> {
+        let num_vars = self.joltage_levels.len();
+
+        // Pre-calculate all 2^n combinations of button presses (the 'parity' combinations)
+        // This is safe because Advent of Code typically keeps the number of buttons small
+        let mut combinations = Vec::new();
+        let num_buttons = self.buttons.len();
+
+        for i in 0..(1 << num_buttons) {
+            let mut combo_effect = vec![0; num_vars];
+            let mut presses = 0;
+            for j in 0..num_buttons {
+                if (i >> j) & 1 == 1 {
+                    presses += 1;
+                    for &light in &self.buttons[j].lights_to_change {
+                        combo_effect[light] += 1;
+                    }
+                }
+            }
+            combinations.push((combo_effect, presses));
+        }
+
+        let mut cache = HashMap::new();
+        self.solve_recursive(&self.joltage_levels, &combinations, &mut cache)
+    }
+
+    fn solve_recursive(
+        &self,
+        current_target: &[usize],
+        combinations: &Vec<(Vec<usize>, usize)>,
+        cache: &mut HashMap<Vec<usize>, Option<usize>>
+    ) -> Option<usize> {
+        // Base case: all counters are zero
+        if current_target.iter().all(|&x| x == 0) {
+            return Some(0);
+        }
+
+        if let Some(&cached) = cache.get(current_target) {
+            return cached;
+        }
+
+        let mut min_presses = None;
+
+        for (combo_effect, combo_presses) in combinations {
+            // Check if this combination matches the parity of every counter
+            let mut possible = true;
+            for i in 0..current_target.len() {
+                if current_target[i] < combo_effect[i] || (current_target[i] % 2 != combo_effect[i] % 2) {
+                    possible = false;
+                    break;
+                }
+            }
+
+            if possible {
+                // Determine the next state: (Target - Combo) / 2
+                let next_state: Vec<usize> = current_target.iter()
+                    .zip(combo_effect.iter())
+                    .map(|(t, c)| (t - c) / 2)
+                    .collect();
+
+                if let Some(sub_presses) = self.solve_recursive(&next_state, combinations, cache) {
+                    let total = 2 * sub_presses + combo_presses;
+                    if min_presses.is_none() || total < min_presses.unwrap() {
+                        min_presses = Some(total);
+                    }
+                }
+            }
+        }
+
+        cache.insert(current_target.to_vec(), min_presses);
+        min_presses
+    }
 }
 
 impl TryFrom<&str> for MachineInstruction {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        // Schema: [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-
         let mut desired_lights = Vec::new();
         let mut buttons = Vec::new();
         let mut joltage_levels = Vec::new();
@@ -170,22 +245,45 @@ impl TryFrom<&str> for MachineInstruction {
                     }
                 }
                 Some('(') => {
-                    let button = Button::from_iter(
-                        cs.take_while(|c| *c != ')')
-                            .filter(|c| c.is_numeric())
-                            .map(|c| c.to_digit(10).unwrap() as usize),
-                    );
-                    buttons.push(button);
+                    let mut lights_to_change = Vec::new();
+                    let mut num = 0_usize;
+                    while let Some(c) = cs.next()
+                        && c != ')'
+                    {
+                        if c != ',' && c.is_numeric() {
+                            num = num * 10
+                                + c.to_digit(10)
+                                    .context("Expected number in joltage pattern")?
+                                    as usize;
+                        } else if c == ',' {
+                            lights_to_change.push(num);
+                            num = 0;
+                        } else {
+                            anyhow::bail!("Unexpected character in button pattern");
+                        }
+                    }
+                    lights_to_change.push(num);
+
+                    buttons.push(Button { lights_to_change });
                 }
                 Some('{') => {
-                    // Ignore joltage config for now
-                    for c in cs
-                        .take_while(|c| *c != '}')
-                        .filter(|c| c.is_numeric())
-                        .map(|c| c.to_digit(10).unwrap() as usize)
+                    let mut num = 0_usize;
+                    while let Some(c) = cs.next()
+                        && c != '}'
                     {
-                        joltage_levels.push(c);
+                        if c != ',' && c.is_numeric() {
+                            num = num * 10
+                                + c.to_digit(10)
+                                    .context("Expected number in joltage pattern")?
+                                    as usize;
+                        } else if c == ',' {
+                            joltage_levels.push(num);
+                            num = 0;
+                        } else {
+                            anyhow::bail!("Unexpected character in joltage pattern");
+                        }
                     }
+                    joltage_levels.push(num);
                 }
                 _ => anyhow::bail!("Invalid part"),
             }
@@ -215,13 +313,22 @@ mod test {
             .map(MachineInstruction::try_from)
             .collect::<Result<Vec<_>>>()
             .unwrap();
-        let fewest_presses = machine_instructions
-            .iter()
-            .map(|m| m.solve_instruction().unwrap())
-            .sum::<usize>();
+        let fewest_presses = machine_instructions.iter().fold(0, |acc, m| {
+            m.set_desired_lights().map(|presses| acc + presses).unwrap_or(acc)
+        });
         assert_eq!(fewest_presses, 7);
     }
 
     #[test]
-    fn part_two() {}
+    fn part_two() {
+        let machine_instructions = INPUT
+            .lines()
+            .map(MachineInstruction::try_from)
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
+        let fewest_presses = machine_instructions.iter().fold(0, |acc, m| {
+            m.set_joltage_levels().map(|presses| acc + presses).unwrap_or(acc)
+        });
+        assert_eq!(fewest_presses, 33);
+    }
 }
