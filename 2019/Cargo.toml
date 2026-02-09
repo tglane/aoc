@@ -1,0 +1,13 @@
+[package]
+name = "aoc-2019"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.95"
+itertools = "0.14.0"
+large-primes = "0.5.1"
+mod_exp = "1.0.1"
+modulo-n-tools = "0.2.0"
+num-bigint = "0.4.6"
+ordered-float = "5"
